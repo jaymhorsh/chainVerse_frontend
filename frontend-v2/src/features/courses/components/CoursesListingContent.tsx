@@ -4,21 +4,10 @@ import { useState } from 'react';
 import { CourseFilters } from './CourseFilters';
 import { CourseList } from './CourseList';
 import { Pagination } from './Pagination';
+import { useCourses } from '@/features/courses/hooks/useCourses';
+import { CoursesFilter } from '@/features/courses/types';
 
-interface Course {
-  id: number;
-  title: string;
-  description: string;
-  instructor: string;
-  rating: number;
-  price: number;
-  level: string;
-  category: string;
-  image: string;
-  currency: string;
-}
-
-const MOCK_COURSES: Course[] = [
+const MOCK_COURSES = [
   {
     id: 1,
     title: 'Introduction to Blockchain',
@@ -167,12 +156,32 @@ const MOCK_COURSES: Course[] = [
 
 export function CoursesListingContent() {
   const [currentPage, setCurrentPage] = useState(1);
-  const coursesPerPage = 6;
-  const totalPages = Math.ceil(MOCK_COURSES.length / coursesPerPage);
+  const [filters, setFilters] = useState<CoursesFilter>({
+    categories: [],
+    level: 'all',
+    priceRange: [0, 500],
+  });
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const startIdx = (currentPage - 1) * coursesPerPage;
-  const endIdx = startIdx + coursesPerPage;
-  const displayedCourses = MOCK_COURSES.slice(startIdx, endIdx);
+  const coursesPerPage = 6;
+
+  // Fetch courses from API with filters
+  const { data: apiData, isLoading, error } = useCourses({
+    page: currentPage,
+    limit: coursesPerPage,
+    category: filters.categories.length > 0 ? filters.categories.join(',') : undefined,
+    level: filters.level !== 'all' ? filters.level : undefined,
+    minPrice: filters.priceRange[0],
+    maxPrice: filters.priceRange[1],
+    search: searchQuery || undefined,
+  });
+
+  // Fallback to mock data if API is not available
+  const displayedCourses = apiData?.data?.courses || MOCK_COURSES.slice(
+    (currentPage - 1) * coursesPerPage,
+    currentPage * coursesPerPage,
+  );
+  const totalPages = apiData?.data?.pagination?.pages || Math.ceil(MOCK_COURSES.length / coursesPerPage);
 
   return (
     <div className="min-h-screen bg-white">
@@ -185,6 +194,13 @@ export function CoursesListingContent() {
           </p>
         </div>
 
+        {/* Error State */}
+        {error && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded-lg mb-8">
+            Using cached courses. API is currently unavailable.
+          </div>
+        )}
+
         {/* Content */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Sidebar - Filters */}
@@ -194,12 +210,23 @@ export function CoursesListingContent() {
 
           {/* Main - Courses */}
           <div className="lg:col-span-3">
-            <CourseList courses={displayedCourses} />
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
+            {isLoading ? (
+              <div className="flex items-center justify-center h-96">
+                <div className="text-center">
+                  <div className="inline-block w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p className="text-gray-600">Loading courses...</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <CourseList courses={displayedCourses} />
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>
