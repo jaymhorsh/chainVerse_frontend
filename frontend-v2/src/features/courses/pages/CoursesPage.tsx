@@ -1,3 +1,5 @@
-export  function CoursesPage() {
-    return <div >CoursesPage</div>
-  }
+import { CoursesListingContent } from '@/features/courses/components/CoursesListingContent';
+
+export default function CoursesPage() {
+  return <CoursesListingContent />;
+}
